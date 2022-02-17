@@ -1,0 +1,7 @@
+# Implementation of DGHV Fully Homomorphic Encryption Scheme in SageMath/Python
+
+Solution to the exercise by Prof. Jean-Sebastien Coron, found here: http://www.crypto-uni.lu/jscoron/cours/sp2/crypto.html
+
+## Usage
+
+Run with SageMath 
