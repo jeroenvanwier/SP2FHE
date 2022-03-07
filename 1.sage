@@ -1,6 +1,8 @@
 from typing import List
 import random
 import secrets
+import sys
+import pickle
 
 
 class DGHVParams:
@@ -110,10 +112,48 @@ def decrypt(ciphertext: int, private_key: DGHVPrivateKey, params: DGHVParams):
 
 
 if __name__ == '__main__':
-    params = DGHVParams(200000, 27, 3, 20, 3, 32, 5)
-    pk, sk = keygen(params)
-    for i in range(1000):
-        plaintext = secrets.choice([0, 1])
-        decryption = decrypt(encrypt(plaintext, pk, params), sk, params)
-        if plaintext != decryption:
-            print(f"Correctness failed: {plaintext} -> {decryption}")
+    params = DGHVParams(160000, 1088, 16, 4096, 64, 42, 16)
+    if "keygen" in sys.argv:
+        pk, sk = keygen(params)
+        pickle.dump(pk, open("key.public", "wb"))
+        pickle.dump(sk, open("key.private", "wb"))
+    elif "test_correctness" in sys.argv:
+        pk = pickle.load(open("key.public", "rb"))
+        sk = pickle.load(open("key.private", "rb"))
+        TOTAL_TESTS = 10
+        for i in range(TOTAL_TESTS):
+            plaintext = secrets.choice([0, 1])
+            decryption = decrypt(encrypt(plaintext, pk, params), sk, params)
+            if plaintext != decryption:
+                print(f"Correctness failed: {plaintext} -> {decryption}")
+            else:
+                print(f"Succesfully completed test {i+1} out of {TOTAL_TESTS}")
+    elif "test_adding" in sys.argv:
+        pk = pickle.load(open("key.public", "rb"))
+        sk = pickle.load(open("key.private", "rb"))
+        TOTAL_TESTS = 10
+        VALUES_SUMMED = 3
+        for i in range(TOTAL_TESTS):
+            plaintexts = [secrets.choice([0, 1]) for _ in range(VALUES_SUMMED)]
+            ciphertexts = [encrypt(plaintext, pk, params)
+                           for plaintext in plaintexts]
+            cipher_sum = sum(ciphertexts)
+            plain_sum = decrypt(cipher_sum, sk, params)
+            correct_sum = sum(plaintexts) % 2
+            print(
+                f"Test {i+1} of {TOTAL_TESTS}: Sum of {''.join([str(p) for p in plaintexts])} is {plain_sum}, {'correct' if correct_sum == plain_sum else 'incorrect'}")
+    elif "test_multiplying" in sys.argv:
+        pk = pickle.load(open("key.public", "rb"))
+        sk = pickle.load(open("key.private", "rb"))
+        TOTAL_TESTS = 10
+        for i in range(TOTAL_TESTS):
+            plaintexts = [secrets.choice([0, 1]) for _ in range(2)]
+            ciphertexts = [encrypt(plaintext, pk, params)
+                           for plaintext in plaintexts]
+            cipher_mul = ciphertexts[0] * ciphertexts[1]
+            plain_mul = decrypt(cipher_mul, sk, params)
+            correct_mul = plaintexts[0] * plaintexts[1]
+            print(
+                f"Test {i+1} of {TOTAL_TESTS}: Product of {''.join([str(p) for p in plaintexts])} is {plain_mul}, {'correct' if correct_mul == plain_mul else 'incorrect'}")
+    else:
+        print("Run with:\n-'keygen' to generate keys\n-'test_correctness' to test correctness of the scheme\n-'test_adding' to test addition of ciphertexts\n-'test_multiplying' to test multiplication of ciphertexts")
