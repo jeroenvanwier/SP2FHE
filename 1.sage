@@ -6,6 +6,8 @@ import pickle
 
 
 class DGHVParams:
+    """Container class for the parameters used by the DGHV scheme."""
+
     def __init__(self, gamma: int, eta: int, rho: int, tau: int, rho_prime: int, sec: int, alpha: int):
         self.gamma = gamma
         self.eta = eta
@@ -16,7 +18,7 @@ class DGHVParams:
         self.alpha = alpha
 
     def pick_p(self):
-        """Pick a random prime p of size eta bits"""
+        """Pick a random prime p of size eta bits, using the Sage random_prime function."""
         return random_prime(2 ** self.eta, lbound=2 ** (self.eta - 1))
 
     def pick_r(self, neg: bool = True, prime: bool = False):
@@ -41,6 +43,8 @@ class DGHVParams:
 
 
 class DGHVPrivateKey:
+    """Wrapper class for the private key"""
+
     def __init__(self, p: int):
         self.p = p
 
@@ -52,6 +56,8 @@ class DGHVPrivateKey:
 
 
 class DGHVPublicKey:
+    """Wrapper class for the public key. Contains the initial seed for the pseudorandom generator to generate the chis, the x_0 and the list of deltas."""
+
     def __init__(self, seed: int, x_0: int, deltas: List[int]):
         self.seed = seed
         self.x_0 = x_0
@@ -82,36 +88,48 @@ def mod(z: int, p: int):
 
 
 def keygen(params: DGHVParams):
+    """Key generator function for the DGHV scheme."""
+    # Create the x_0 noiseless ciphertext.
     p = params.pick_p()
     q_0 = randbelow((2 ** (params.gamma - 1)) / p) * 2 + 1
     x_0 = q_0 * p
+    # Pick a seed for the PRG.
     seed = randbelow(2 ** params.gamma)
     random.seed(a=seed)
+    # Generate the chis using the PRG.
     chis = [random.randrange(2 ** params.gamma) for _ in range(params.tau)]
+    # Calculate the deltas for the previously-generated chis.
     deltas = [(chi % p) + params.pick_xi(p) * p - params.pick_r()
               for chi in chis]
+    # Wrap the keys and return them.
     private_key = DGHVPrivateKey(p)
     public_key = DGHVPublicKey(seed, x_0, deltas)
     return public_key, private_key
 
 
 def encrypt(plaintext: int, public_key: DGHVPublicKey, params: DGHVParams):
+    """Encryption function for the DGHV scheme."""
+    # Pick some random noise using the rho' parameter
     r = params.pick_r(prime=True)
     sum = 0
     random.seed(public_key.seed)
     for i in range(1, params.tau + 1):
+        # One-by-one reconstruct the x's and add them together weighted by random b's
         b = randbelow(2 ** params.alpha)
         chi = random.randrange(2 ** params.gamma)
         x = chi - public_key.delta(i)
         sum = mod(sum + b * x, public_key.x_0)
+    # Use the sum to encrypt the plaintext
     return mod(plaintext + 2 * r + 2 * sum, public_key.x_0)
 
 
 def decrypt(ciphertext: int, private_key: DGHVPrivateKey, params: DGHVParams):
+    """Decryption function for the DGHV scheme. Implements the non-squashed basic decryption."""
     return mod(ciphertext, private_key.p) % 2
 
 
 if __name__ == '__main__':
+    # We use the 'toy example' scheme parameters to facilitate timely execution. See the README file for the explaination of all the commands.
     params = DGHVParams(160000, 1088, 16, 4096, 64, 42, 16)
     if "keygen" in sys.argv:
         pk, sk = keygen(params)
